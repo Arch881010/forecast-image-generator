@@ -13,7 +13,7 @@ This project generates weather forecast images using data from the National Weat
 
 1. Clone the repository:
     ```sh
-    git clone https://github.com/yourusername/forecast-image-generator.git
+    git clone https://github.com/Arch881010/forecast-image-generator.git
     cd forecast-image-generator
     ```
 
