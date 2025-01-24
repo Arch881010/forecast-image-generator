@@ -223,7 +223,10 @@ def generate_weather_image(weather_data):
         d.text((x, y), text[i], fill=text_color, font=font)
 
     if not loop:
-        img.show()
+        try:
+            img.show()
+        except:
+            ""
 
     if image_title != "Tonight's Forecast":
         writeStorage({"high_temp": high_temp})
