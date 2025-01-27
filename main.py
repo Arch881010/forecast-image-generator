@@ -34,8 +34,8 @@ def fetch_weather_data():
 
     if (
         temp_data is not None
-        and hasattr(temp_data, "cords")
-        and hasattr(temp_data, "forecast_url")
+        and objectHasKey(data, "high_temp")
+        and objectHasKey(data, "high_temp")
         and temp_data["cords"] == [lat, lon]
     ):
         forecast_url = temp_data["forecast_url"]
@@ -202,15 +202,17 @@ def generate_weather_image(weather_data):
 
     for i in range(len(text)):
         if text[i] == "High: -1°F":
-            if hasattr(data, "high_temp"):
+            if objectHasKey(data, "high_temp"):
                 text[i] = f"High: {data['high_temp']}°F"
             else:
-                text[i] = f"High: Missing"
+                text[i] = f"High: [Missing]"
         if text[i] == "N/A":
-            if hasattr(data, "shortForecast"):
+            if objectHasKey(data, "high_temp"):
                 text[i] = data["shortForecast"]
             else:
-                text[i] = "Missing"
+                text[i] = "[Missing]"
+        if text[i] == "Currently ":
+            text[i] = "Currently [Missing]"
 
     for i in range(len(text)):
         fill_color = text_color
