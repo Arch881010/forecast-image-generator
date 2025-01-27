@@ -59,3 +59,7 @@ Edit the [config.py](config.py) file to customize the settings such as colors, f
 ## License
 
 This project is licensed under the MIT License. See the [LICENSE](LICENSE) file for details.
+
+# TODO
+
+- [ ] Fix the image randomly being rotated 180 degrees after running `py make_transparent.py`

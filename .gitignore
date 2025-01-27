@@ -160,3 +160,8 @@ cython_debug/
 #.idea/
 
 *dev*
+
+output/
+transparent_icons/
+icons/
+*.png

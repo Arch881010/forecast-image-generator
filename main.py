@@ -8,6 +8,8 @@ import json
 from config import *
 from extra import *
 
+attemps = 0
+
 from generate_header import generate_header
 from generate_footer import generate_footer
 
@@ -24,10 +26,27 @@ def celsius_to_fahrenheit(celsius):
 # Function to fetch weather data
 def fetch_weather_data():
     # Fetch weather data from weather.gov
-    weather_url = f"https://api.weather.gov/points/{lat},{lon}"
-    weather_response = requests.get(weather_url)
-    weather_data = weather_response.json()
-    forecast_url = weather_data["properties"]["forecast"]
+    temp_data = readStorage()
+
+    weather_data = None
+    forecast_url = None
+    forecast_data = None
+
+    if (
+        temp_data is not None
+        and hasattr(temp_data, "cords")
+        and hasattr(temp_data, "forecast_url")
+        and temp_data["cords"] == [lat, lon]
+    ):
+        forecast_url = temp_data["forecast_url"]
+
+    if forecast_url is None:
+        weather_url = f"https://api.weather.gov/points/{lat},{lon}/"
+        weather_response = requests.get(weather_url)
+        weather_data = weather_response.json()
+        forecast_url = weather_data["properties"]["forecast"]
+        addToStorage({"forecast_url": forecast_url, "cords": [lat, lon]})
+
     forecast_response = requests.get(forecast_url)
     forecast_data = forecast_response.json()
 
@@ -93,8 +112,11 @@ def generate_weather_image(weather_data):
     if background.size[0] > max_width:
         raise Exception(
             "Image is too wide. Please use an image with a width of "
-            + max_width
-            + "px or less."
+            + str(max_width)
+            + "px or less.\n"
+            + "Current width: "
+            + str(background.size[0])
+            + "px"
         )
 
     size = (
@@ -134,11 +156,13 @@ def generate_weather_image(weather_data):
         weather_data["current_weather"]["properties"]["timestamp"],
         "%Y-%m-%dT%H:%M:%S%z",
     )
+
     next_update = last_updated + timedelta(hours=2)
     sleep_time = (next_update - datetime.now(pytz.utc)).total_seconds()
 
     # Check if high is less than or equal to low
-    # This means that we are in the new period
+    # If high < low, then it's tonight's forecast
+    # so we must shift the forecast data
     if high_temp <= low_temp:
         image_title = "Tonight's Forecast"
         forecast_day = {"temperature": -1, "shortForecast": "N/A"}
@@ -147,7 +171,6 @@ def generate_weather_image(weather_data):
         forecast_night2 = weather_data["forecast"]["properties"]["periods"][2]
         high_temp = forecast_day["temperature"]
         low_temp = forecast_night["temperature"]
-        twoDay = True
 
     wind_gusts = f"Wind Gust: {weather_data['current_weather']['properties']['windGust']['value']} mph"
     if weather_data["current_weather"]["properties"]["windGust"]["value"] is None:
@@ -162,10 +185,12 @@ def generate_weather_image(weather_data):
 
     text = [
         "Today's Forecast",
+        f"{forecast_day['shortForecast']}",
         f"High: {high_temp}°F",
         f"Low: {low_temp}°F",
         None,
         f"Observed Stats",
+        f"Currently {weather_data['current_weather']['properties']['textDescription']}",
         f"Temperature: {current_temp}°F",
         f"Feels Like: {feels_like}°F",
         f"Wind: {weather_data['current_weather']['properties']['windSpeed']['value']} mph",
@@ -175,24 +200,23 @@ def generate_weather_image(weather_data):
     if sleep_time < 0 or debug:
         text.append(f"Outdated")
 
-    if high_temp == -1:
-        fixed = False
-        for i in range(len(text)):
-            if fixed:
-                continue
-            if text[i] == "High: -1°F":
-                if data["high_temp"] is not None:
-                    text[i] = f"High: {data['high_temp']}°F"
-                    fixed = True
-                else:
-                    text[i] = None
-                    fixed = True
+    for i in range(len(text)):
+        if text[i] == "High: -1°F":
+            if hasattr(data, "high_temp"):
+                text[i] = f"High: {data['high_temp']}°F"
+            else:
+                text[i] = f"High: Missing"
+        if text[i] == "N/A":
+            if hasattr(data, "shortForecast"):
+                text[i] = data["shortForecast"]
+            else:
+                text[i] = "Missing"
 
     for i in range(len(text)):
         fill_color = text_color
         if text[i] == "" or text[i] == None:
             continue
-        y = s + i * font_size + spacing
+        y = s + (i) * font_size + spacing
 
         if i == 0:
             y = s
@@ -204,18 +228,19 @@ def generate_weather_image(weather_data):
 
     text = [
         f"Tomorrow's Forecast",
+        f"{forecast_day2['shortForecast']}",
         f"High: {forecast_day2['temperature']}°F",
         f"Low: {forecast_night2['temperature']}°F",
         None,
         f"Severe Potential",
-        f"{forecast_day2['shortForecast']}",
+        f"WIP",
     ]
+
     for i in range(len(text)):
         if text[i] == "" or text[i] == None:
             continue
-
         x = width - getTextSize(text[i])[0] - 10
-        y = s + i * font_size + spacing
+        y = s + (i) * font_size + spacing
 
         if i == 0:
             y = s
@@ -224,12 +249,20 @@ def generate_weather_image(weather_data):
 
     if not loop:
         try:
+            print(
+                "Present Weather:"
+                + ", ".join(
+                    weather_data["current_weather"]["properties"]["presentWeather"]
+                )
+            )
             img.show()
         except:
-            ""
+            """"""
 
     if image_title != "Tonight's Forecast":
-        writeStorage({"high_temp": high_temp})
+        addToStorage(
+            {"high_temp": high_temp, "shortForecast": forecast_day["shortForecast"]}
+        )
 
     img.save("output/weather_forecast.png")
 
@@ -245,11 +278,22 @@ if __name__ == "__main__":
     generate_weather_image(weather_data)
 
     print("Image generated")
+    print(
+        "Latest Observation: https://api.weather.gov/stations/"
+        + wx_obs_station
+        + "/observations/latest"
+    )
+    print("Forecast: https://api.weather.gov/points/" + lat + "," + lon)
 
     last_updated = datetime.strptime(
         weather_data["current_weather"]["properties"]["timestamp"],
         "%Y-%m-%dT%H:%M:%S%z",
     )
+
+    print(
+        "Latest Observation Timestamp:", last_updated.strftime("%Y-%m-%d %H:%M:%S %Z")
+    )
+
     next_update = last_updated + timedelta(hours=1)
     sleep_time = (next_update - datetime.now(pytz.utc)).total_seconds()
 
@@ -276,5 +320,11 @@ if __name__ == "__main__":
             generate_weather_image(weather_data)
             time.sleep(sleep_time)
         else:
-            print("No new update (observations were not released via api)")
-            time.sleep(60)
+            if attemps == 60:
+                print("Forcing image to be generated again")
+                attemps = 0
+                generate_weather_image(weather_data)
+            else:
+                print("No new update (observations were not released via api)")
+                time.sleep(60)
+                attemps += 1

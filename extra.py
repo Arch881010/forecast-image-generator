@@ -28,9 +28,20 @@ def readStorage():
 def writeStorage(data):
     from json import dump
 
-    saveData = {
-        "high_temp": data["high_temp"],
-    }
-
     with open('storage.json', 'w') as f:
         dump(data, f)
+
+def updateKey(data, key, value):
+    data[key] = value
+    old_data = readStorage()
+    old_data[key] = value
+    writeStorage(old_data)
+
+def addToStorage(data):
+    old_data = readStorage()
+    for key in data:
+        old_data[key] = data[key]
+    writeStorage(old_data)
+
+def objectHasKey(data, key):
+    return key in data
