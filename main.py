@@ -212,7 +212,9 @@ def generate_weather_image(weather_data):
             else:
                 text[i] = "[Missing]"
         if text[i] == "Currently ":
-            text[i] = "Currently [Missing]"
+            text[i] = "Currently Clear(?)"
+        if text[i] == "Feels Like: Missing°F":
+            text[i] = f"Feels Like: {current_temp}°F"
 
     for i in range(len(text)):
         fill_color = text_color
