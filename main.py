@@ -190,7 +190,7 @@ def generate_weather_image(weather_data):
         f"Low: {low_temp}°F",
         None,
         f"Observed Stats",
-        f"Currently {weather_data['current_weather']['properties']['textDescription']}",
+        f"{weather_data['current_weather']['properties']['textDescription']}",
         f"Temperature: {current_temp}°F",
         f"Feels Like: {feels_like}°F",
         f"Wind: {weather_data['current_weather']['properties']['windSpeed']['value']} mph",
