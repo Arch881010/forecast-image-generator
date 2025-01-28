@@ -197,7 +197,7 @@ def generate_weather_image(weather_data):
         wind_gusts,
     ]
 
-    if sleep_time < 0 or debug:
+    if sleep_time < 0:
         text.append(f"Outdated")
 
     for i in range(len(text)):

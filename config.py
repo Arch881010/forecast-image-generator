@@ -63,6 +63,9 @@ timezone         = "America/Chicago"
 # debug
 debug            = False
 
+# is production?
+isProduction     = False
+
 # Image Stuff
 # Center_Image can change or not, doesn't matter.
 # Width Multiplier 
