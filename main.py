@@ -31,6 +31,8 @@ def fetch_weather_data():
     weather_data = None
     forecast_url = None
     forecast_data = None
+    max_retries = 1
+    retry_delay = 10  # seconds
 
     if (
         temp_data is not None
@@ -41,25 +43,73 @@ def fetch_weather_data():
         forecast_url = temp_data["forecast_url"]
 
     if forecast_url is None:
-        weather_url = f"https://api.weather.gov/points/{lat},{lon}/"
-        weather_response = requests.get(weather_url)
-        weather_data = weather_response.json()
-        forecast_url = weather_data["properties"]["forecast"]
-        addToStorage({"forecast_url": forecast_url, "cords": [lat, lon]})
+        # Initial request to get forecast URL
+        for attempt in range(max_retries):
+            try:
+                weather_url = f"https://api.weather.gov/points/{lat},{lon}/"
+                weather_response = requests.get(weather_url, timeout=10)
+                
+                # Check if the response was successful
+                weather_response.raise_for_status()
+                
+                weather_data = weather_response.json()
+                forecast_url = weather_data["properties"]["forecast"]
+                addToStorage({"forecast_url": forecast_url, "cords": [lat, lon]})
+                break
+            except requests.exceptions.RequestException as e:
+                print(f"Error fetching weather data (attempt {attempt+1}/{max_retries}): {e}")
+                if attempt < max_retries - 1:
+                    print(f"Retrying in {retry_delay} seconds...")
+                    time.sleep(retry_delay)
+                else:
+                    print("Failed to fetch weather data after multiple attempts.")
+                    if temp_data is not None and objectHasKey(temp_data, "forecast_url"):
+                        print("Using previously cached forecast URL")
+                        forecast_url = temp_data["forecast_url"]
+                    else:
+                        raise Exception("Could not get forecast URL and no cached data available")
 
-    forecast_response = requests.get(forecast_url)
-    forecast_data = forecast_response.json()
+    # Get forecast data
+    try:
+        forecast_response = requests.get(forecast_url, timeout=10)
+        forecast_response.raise_for_status()
+        forecast_data = forecast_response.json()
+    except requests.exceptions.RequestException as e:
+        print(f"Error fetching forecast data: {e}")
+        # Try to use cached data if available
+        if os.path.exists("output/weather_data.json"):
+            print("Using cached weather data")
+            with open("output/weather_data.json", "r") as json_file:
+                cached_data = json.load(json_file)
+                forecast_data = cached_data["forecast"]
+        else:
+            raise Exception("Could not get forecast data and no cached data available")
 
     # Convert forecast temperatures to Fahrenheit if necessary
-    for period in forecast_data["properties"]["periods"]:
-        if period["temperatureUnit"] == "C":
-            period["temperature"] = celsius_to_fahrenheit(period["temperature"])
-            period["temperatureUnit"] = "F"
+    if forecast_data:
+        for period in forecast_data["properties"]["periods"]:
+            if period["temperatureUnit"] == "C":
+                period["temperature"] = celsius_to_fahrenheit(period["temperature"])
+                period["temperatureUnit"] = "F"
 
-    current_weather = requests.get(
-        f"https://api.weather.gov/stations/{wx_obs_station}/observations/latest"
-    )
-    current_weather_data = current_weather.json()
+    # Get current weather observations
+    try:
+        current_weather = requests.get(
+            f"https://api.weather.gov/stations/{wx_obs_station}/observations/latest",
+            timeout=10
+        )
+        current_weather.raise_for_status()
+        current_weather_data = current_weather.json()
+    except requests.exceptions.RequestException as e:
+        print(f"Error fetching current weather data: {e}")
+        # Try to use cached data if available
+        if os.path.exists("output/weather_data.json"):
+            print("Using cached current weather data")
+            with open("output/weather_data.json", "r") as json_file:
+                cached_data = json.load(json_file)
+                current_weather_data = cached_data["current_weather"]
+        else:
+            raise Exception("Could not get current weather data and no cached data available")
 
     # Convert current temperature to Fahrenheit if necessary
     for key, value in current_weather_data["properties"].items():
@@ -80,9 +130,8 @@ def fetch_weather_data():
             value["value"] = round(value["value"] * 0.621371)
             value["unitCode"] = "wmoUnit:mph"
 
-    json = {"forecast": forecast_data, "current_weather": current_weather_data}
-
-    return json
+    json_data = {"forecast": forecast_data, "current_weather": current_weather_data}
+    return json_data
 
 
 # Function to generate PNG image
@@ -141,7 +190,6 @@ def generate_weather_image(weather_data):
     generate_footer(time, datetime.now().strftime("%I:%M %p %m/%d/%Y"))
 
     d = ImageDraw.Draw(img)
-    font_path = os.path.join(os.path.dirname(__file__), "arial.ttf")
     font_size = 20
     spacing = 10
 
