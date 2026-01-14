@@ -3,6 +3,15 @@ from PIL import ImageFont
 black = (0, 0, 0)
 white = (255, 255, 255)
 red = (255, 0, 0)
+spc = {
+    "TSTM": (194, 232, 194),
+    "MRGL": (131, 197, 131),
+    "SLGT": (246, 246, 138),
+    "ENH": (228, 194, 133),
+    "MDT": (226, 125, 129),
+    "HIGH": (253, 127, 251),
+    "NONE": (169, 169, 169),
+}
 # Add other colors here
 
 
@@ -30,6 +39,7 @@ lon              = "-77.0369"
 
 # Default image title
 image_title      = "Today's Forecast"
+image_night      = "Tonight's Forecast"
 
 # Observation station
 # This can be found at https://www.weather.gov/
@@ -49,7 +59,7 @@ background_color = black
 header_color     = black
 footer_color     = black
 
-# Header text... ez
+# Header text...
 header_text      = "Header"
 
 # font

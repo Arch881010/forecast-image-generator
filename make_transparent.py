@@ -9,7 +9,7 @@ def make_image_transparent(filename, tolerance=200):
         new_data = []
         for item in datas:
             # Change all white (also shades of whites) pixels to transparent
-            if all(channel > tolerance for channel in item[:3]):
+            if all(channel > tolerance for channel in item[:3]): # type: ignore
                 new_data.append((255, 255, 255, 0))
             else:
                 new_data.append(item)

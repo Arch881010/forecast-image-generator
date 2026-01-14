@@ -5,7 +5,7 @@ from config import isProduction
 import os
 
 app = Flask(__name__)
-port = 9999
+port = 8090
 
 
 @app.route("/")

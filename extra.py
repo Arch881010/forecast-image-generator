@@ -45,3 +45,16 @@ def addToStorage(data):
 
 def objectHasKey(data, key):
     return key in data
+
+
+def correctText(str):
+    if str == "Slight Chance Showers And Thunderstorms":
+        str = "Slight Chance of Thunderstorms"
+    if len(str) > 26:
+        str = (str.split(" then"))[0] + " Early"
+
+    return str 
+
+# Function to convert Celsius to Fahrenheit
+def celsius_to_fahrenheit(celsius):
+    return round((celsius * 9 / 5) + 32)

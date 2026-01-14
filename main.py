@@ -17,12 +17,6 @@ cords = (lat, lon)
 
 data = readStorage()
 
-
-# Function to convert Celsius to Fahrenheit
-def celsius_to_fahrenheit(celsius):
-    return round((celsius * 9 / 5) + 32)
-
-
 # Function to fetch weather data
 def fetch_weather_data():
     # Fetch weather data from weather.gov
@@ -48,30 +42,36 @@ def fetch_weather_data():
             try:
                 weather_url = f"https://api.weather.gov/points/{lat},{lon}/"
                 weather_response = requests.get(weather_url, timeout=10)
-                
+
                 # Check if the response was successful
                 weather_response.raise_for_status()
-                
+
                 weather_data = weather_response.json()
                 forecast_url = weather_data["properties"]["forecast"]
                 addToStorage({"forecast_url": forecast_url, "cords": [lat, lon]})
                 break
             except requests.exceptions.RequestException as e:
-                print(f"Error fetching weather data (attempt {attempt+1}/{max_retries}): {e}")
+                print(
+                    f"Error fetching weather data (attempt {attempt+1}/{max_retries}): {e}"
+                )
                 if attempt < max_retries - 1:
                     print(f"Retrying in {retry_delay} seconds...")
                     time.sleep(retry_delay)
                 else:
                     print("Failed to fetch weather data after multiple attempts.")
-                    if temp_data is not None and objectHasKey(temp_data, "forecast_url"):
+                    if temp_data is not None and objectHasKey(
+                        temp_data, "forecast_url"
+                    ):
                         print("Using previously cached forecast URL")
                         forecast_url = temp_data["forecast_url"]
                     else:
-                        raise Exception("Could not get forecast URL and no cached data available")
+                        raise Exception(
+                            "Could not get forecast URL and no cached data available"
+                        )
 
     # Get forecast data
     try:
-        forecast_response = requests.get(forecast_url, timeout=10)
+        forecast_response = requests.get(forecast_url, timeout=10)  # type: ignore
         forecast_response.raise_for_status()
         forecast_data = forecast_response.json()
     except requests.exceptions.RequestException as e:
@@ -96,7 +96,7 @@ def fetch_weather_data():
     try:
         current_weather = requests.get(
             f"https://api.weather.gov/stations/{wx_obs_station}/observations/latest",
-            timeout=10
+            timeout=10,
         )
         current_weather.raise_for_status()
         current_weather_data = current_weather.json()
@@ -109,7 +109,9 @@ def fetch_weather_data():
                 cached_data = json.load(json_file)
                 current_weather_data = cached_data["current_weather"]
         else:
-            raise Exception("Could not get current weather data and no cached data available")
+            raise Exception(
+                "Could not get current weather data and no cached data available"
+            )
 
     # Convert current temperature to Fahrenheit if necessary
     for key, value in current_weather_data["properties"].items():
@@ -154,6 +156,9 @@ def generate_weather_image(weather_data):
     tz = pytz.timezone(timezone)
     tz_time = utc_time.astimezone(tz)
     time = tz_time.strftime("%I:%M %p %m/%d/%Y")
+
+    day1Risk = SPCRiskInArea(1)
+    day2Risk = SPCRiskInArea(2)
 
     # Gets the background image
     background = Image.open(file)
@@ -209,10 +214,13 @@ def generate_weather_image(weather_data):
     sleep_time = (next_update - datetime.now(pytz.utc)).total_seconds()
 
     # Check if high is less than or equal to low
-    # If high < low, then it's tonight's forecast
+    # If high < low, then it's image_night
     # so we must shift the forecast data
+    original_high_temp = high_temp  # Save original before modification
+    original_forecast_day = forecast_day  # Save original forecast day
+
     if high_temp <= low_temp:
-        image_title = "Tonight's Forecast"
+        image_title = image_night
         forecast_day = {"temperature": -1, "shortForecast": "N/A"}
         forecast_night = weather_data["forecast"]["properties"]["periods"][0]
         forecast_day2 = weather_data["forecast"]["properties"]["periods"][1]
@@ -231,18 +239,33 @@ def generate_weather_image(weather_data):
     if feels_like is None:
         feels_like = "Missing"
 
+    # Handle long wording to fit onto the frame
+    # if forecast_day["shortForecast"] == "Slight Chance Showers And Thunderstorms":
+    #     forecast_day["shortForecast"] = "Slight Chance of Thunderstorms"
+    # if len(forecast_day["shortForecast"]) > 26:
+    #     forecast_day["shortForecast"] = (forecast_day["shortForecast"].split("then"))[0]
+
+    forecast_day["shortForecast"] = correctText(forecast_day["shortForecast"])
+    forecast_day2["shortForecast"] = correctText(forecast_day2["shortForecast"])
+
+    print(len(forecast_day["shortForecast"]))
+
     text = [
-        "Today's Forecast",
+        image_title,
         f"{forecast_day['shortForecast']}",
         f"High: {high_temp}°F",
         f"Low: {low_temp}°F",
+        None,
+        "Severe Risk",
+        day1Risk,
+        #"MDT",
         None,
         f"Observed Stats",
         f"{weather_data['current_weather']['properties']['textDescription']}",
         f"Temperature: {current_temp}°F",
         f"Feels Like: {feels_like}°F",
         f"Wind: {weather_data['current_weather']['properties']['windSpeed']['value']} mph",
-        wind_gusts,
+        wind_gusts
     ]
 
     if sleep_time < 0:
@@ -268,6 +291,25 @@ def generate_weather_image(weather_data):
         fill_color = text_color
         if text[i] == "" or text[i] == None:
             continue
+
+        if i > 0:
+            if text[i].upper() in spc.keys():
+                fill_color = spc[text[i].upper()]
+                match text[i].upper():
+                    case "TSTM":
+                        text[i] = "Thunderstorm (<5%)"
+                    case "MRGL":
+                        text[i] = "Marginal (5%)"
+                    case "SLGT":
+                        text[i] = "Slight (15%)"
+                    case "ENH":
+                        text[i] = "Enhanced (30%)"
+                    case "MDT":
+                        text[i] = "Moderate (45%)"
+                    case "HIGH":
+                        text[i] = "High (60%)"
+                    case "NONE":
+                        text[i] = "None"
         y = s + (i) * font_size + spacing
 
         if i == 0:
@@ -284,20 +326,41 @@ def generate_weather_image(weather_data):
         f"High: {forecast_day2['temperature']}°F",
         f"Low: {forecast_night2['temperature']}°F",
         None,
-        f"Severe Potential",
-        f"WIP",
+        "Severe Risk",
+        day2Risk,
     ]
 
     for i in range(len(text)):
+        fill_color = text_color
         if text[i] == "" or text[i] == None:
             continue
+
+        if i > 0:
+            if text[i].upper() in spc.keys():
+                fill_color = spc[text[i].upper()]
+                match text[i].upper():
+                    case "TSTM":
+                        text[i] = "Thunderstorm Risk (<5%)"
+                    case "MRGL":
+                        text[i] = "Marginal Risk (5%)"
+                    case "SLGT":
+                        text[i] = "Slight Risk (15%)"
+                    case "ENH":
+                        text[i] = "Enhanced Risk (30%)"
+                    case "MDT":
+                        text[i] = "Moderate Risk (45%)"
+                    case "HIGH":
+                        text[i] = "High Risk (60%)"
+                    case "NONE":
+                        text[i] = "None"
+
         x = width - getTextSize(text[i])[0] - 10
         y = s + (i) * font_size + spacing
 
         if i == 0:
             y = s
 
-        d.text((x, y), text[i], fill=text_color, font=font)
+        d.text((x, y), text[i], fill=fill_color, font=font)
 
     if not loop:
         try:
@@ -311,12 +374,93 @@ def generate_weather_image(weather_data):
         except:
             """"""
 
-    if image_title != "Tonight's Forecast":
+    if image_title != image_night:
         addToStorage(
-            {"high_temp": high_temp, "shortForecast": forecast_day["shortForecast"]}
+            {
+                "high_temp": original_high_temp,
+                "shortForecast": original_forecast_day["shortForecast"],
+            }
         )
 
     img.save("output/weather_forecast.png")
+
+
+def SPCRiskInArea(day):
+    try:
+        url = f"https://www.spc.noaa.gov/products/outlook/day{day}otlk_cat.lyr.geojson"
+        # https://www.spc.noaa.gov/products/outlook/day1otlk_cat.lyr.geojson
+        response = requests.get(url, timeout=10)
+        response.raise_for_status()
+        outlook_data = response.json()
+
+        # Use cords variable and ensure numeric values
+        check_lat = float(cords[0])
+        check_lon = float(cords[1])
+        
+        print(f"Checking location: {check_lat}, {check_lon}")
+
+        # Risk categories in order of severity (lowest to highest)
+        risk_levels = ["TSTM", "MRGL", "SLGT", "ENH", "MDT", "HIGH"]
+        highest_risk = None
+
+        # Check each feature in the GeoJSON
+        for feature in outlook_data.get("features", []):
+            properties = feature.get("properties", {})
+            geometry = feature.get("geometry", {})
+
+            risk_label = properties.get("LABEL", "").upper()
+
+            if risk_label not in risk_levels:
+                continue
+
+            # Check if our coordinates are within this polygon
+            if geometry.get("type") == "Polygon":
+                coordinates = geometry.get("coordinates", [[]])
+                if point_in_polygon(check_lat, check_lon, coordinates[0]):
+                    if highest_risk is None or risk_levels.index(
+                        risk_label
+                    ) > risk_levels.index(highest_risk):
+                        highest_risk = risk_label
+            elif geometry.get("type") == "MultiPolygon":
+                for polygon in geometry.get("coordinates", []):
+                    if point_in_polygon(check_lat, check_lon, polygon[0]):
+                        if highest_risk is None or risk_levels.index(
+                            risk_label
+                        ) > risk_levels.index(highest_risk):
+                            highest_risk = risk_label
+                        break
+
+        if highest_risk is None:
+            print("Location not in any risk area")
+            return "None"
+        
+        return highest_risk
+
+    except requests.exceptions.RequestException as e:
+        print(f"Error fetching SPC outlook data: {e}")
+        return "None"
+    except Exception as e:
+        print(f"Error processing SPC data: {e}")
+        return "None"
+
+
+def point_in_polygon(lat, lon, polygon) -> bool:
+    inside = False
+    n = len(polygon)
+
+    # Convert lat/lon to float for comparison
+    x, y = float(lon), float(lat)
+
+    for i in range(n):
+        j = (i + 1) % n
+        xi, yi = polygon[i][0], polygon[i][1]
+        xj, yj = polygon[j][0], polygon[j][1]
+
+        # Check if point is on an edge (ray casting algorithm)
+        if ((yi > y) != (yj > y)) and (x < (xj - xi) * (y - yi) / (yj - yi) + xi):
+            inside = not inside
+
+    return inside
 
 
 if __name__ == "__main__":
