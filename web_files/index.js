@@ -5,6 +5,7 @@ document.addEventListener('DOMContentLoaded', function() {
             document.getElementById('jsUpdate').textContent = data.title;
             document.getElementById('titleChange').textContent = "Welcome to " + data.title;
             document.getElementById('setImage').src = "./output/weather_forecast.png?nocache=" + new Date().getTime();
+            document.getElementById('setImage2').src = "./output/seven_day_weather_forecast.png?nocache=" + new Date().getTime();
         })
         .catch(error => console.error('Error fetching title:', error));
 });

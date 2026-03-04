@@ -58,3 +58,59 @@ def correctText(str):
 # Function to convert Celsius to Fahrenheit
 def celsius_to_fahrenheit(celsius):
     return round((celsius * 9 / 5) + 32)
+
+def create_image(file=""):
+    from PIL import Image, ImageDraw
+    from config import background_color, width_multiplier, header_height, max_width, center_image
+
+    if file == "":
+        from config import file
+
+    background = Image.open(file)
+
+    if background.size[0] > max_width:
+        raise Exception(
+            "Image is too wide. Please use an image with a width of "
+            + str(max_width)
+            + "px or less.\n"
+            + "Current width: "
+            + str(background.size[0])
+            + "px"
+        )
+
+    size = (
+        int(background.size[0] * width_multiplier),
+        background.size[1] + 2 * header_height,
+    )
+
+    img = Image.new("RGB", size, color=background_color)
+
+
+    width = img.size[0]
+    height = img.size[1]
+
+    if center_image:
+        img.paste(
+            background, ((width - background.size[0]) // 2, header_height), background
+        )
+    else:
+        img.paste(background, (0, header_height), background)
+
+    return img
+
+def create_backgroundless_image(dimensions):
+    from PIL import Image
+    from config import background_color
+
+    return Image.new("RGB", dimensions, background_color)
+
+
+def getCorrectedHeight(file=""):
+    from config import header_height
+    from PIL import Image
+
+    if file == "":
+        from config import file
+
+    img = Image.open(file)
+    return (img.size[1] + 2 * header_height - header_height)

@@ -4,7 +4,16 @@ black = (0, 0, 0)
 white = (255, 255, 255)
 red = (255, 0, 0)
 # Add other colors here
-
+spc = {
+    "TSTM": (194, 232, 194),
+    "MRGL": (131, 197, 131),
+    "SLGT": (246, 246, 138),
+    "ENH": (228, 194, 133),
+    "MDT": (226, 125, 129),
+    "HIGH": (253, 127, 251),
+    "NONE": (169, 169, 169),
+}
+dolphin_blue = (38, 34, 98)
 
 # config that are changeable
 
